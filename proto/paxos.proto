@@ -1,0 +1,94 @@
+syntax = "proto3";
+
+package paxos;
+
+option go_package = "paxosbank/proto/paxospb";
+
+// A ballot number. Ordered first by round, then by node_id as tiebreaker.
+// This guarantees no two nodes ever use the same ballot.
+message Ballot {
+  uint64 round = 1;
+  uint32 node_id = 2;
+}
+
+message Transaction {
+  uint64 sender = 1;
+  uint64 receiver = 2;
+  int64 amount = 3;
+}
+
+// ---- Phase 1 ----
+message PrepareRequest {
+  Ballot ballot = 1;
+  uint64 from_slot = 2; // first log slot the proposer wants to claim
+}
+
+message AcceptedEntry {
+  uint64 slot = 1;
+  Ballot ballot = 2;
+  Transaction value = 3;
+}
+
+message PromiseResponse {
+  bool ok = 1;
+  Ballot promised = 2; // acceptor's current promise (useful on rejection)
+  // Entries this acceptor already accepted at/after from_slot.
+  // A new leader MUST adopt these (highest ballot wins per slot).
+  repeated AcceptedEntry accepted = 3;
+}
+
+// ---- Phase 2 ----
+message AcceptRequest {
+  Ballot ballot = 1;
+  uint64 slot = 2;
+  Transaction value = 3;
+}
+
+message AcceptedResponse {
+  bool ok = 1;
+  Ballot promised = 2;
+}
+
+// ---- Commit / liveness ----
+message CommitNotice {
+  uint64 slot = 1;
+  Transaction value = 2;
+}
+
+message Heartbeat {
+  Ballot leader_ballot = 1;
+  uint32 leader_id = 2;
+  uint64 commit_index = 3;
+}
+
+message Ack {}
+
+// ---- Client API ----
+message ClientRequest {
+  Transaction txn = 1;
+}
+
+message ClientReply {
+  bool ok = 1;
+  string error = 2;
+}
+
+message BalanceRequest {
+  uint64 item_id = 1;
+}
+
+message BalanceReply {
+  int64 balance = 1;
+}
+
+service PaxosNode {
+  // Paxos (node <-> node)
+  rpc Prepare(PrepareRequest) returns (PromiseResponse);
+  rpc Accept(AcceptRequest) returns (AcceptedResponse);
+  rpc Commit(CommitNotice) returns (Ack);
+  rpc SendHeartbeat(Heartbeat) returns (Ack);
+
+  // Client (client <-> leader)
+  rpc Submit(ClientRequest) returns (ClientReply);
+  rpc GetBalance(BalanceRequest) returns (BalanceReply);
+}

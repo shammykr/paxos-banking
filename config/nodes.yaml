@@ -1,0 +1,13 @@
+initial_balance: 10
+
+clusters:
+  - id: 1
+    shard_from: 1
+    shard_to: 3000
+    nodes:
+      - id: 1
+        addr: "127.0.0.1:50051"
+      - id: 2
+        addr: "127.0.0.1:50052"
+      - id: 3
+        addr: "127.0.0.1:50053"
